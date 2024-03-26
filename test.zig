@@ -98,6 +98,40 @@ test "Noninjectable" {
 }
 
 
+const Union_Result_Type = union(enum) {
+    int: i32,
+    unsigned: usize,
+};
+
+const Union_Result_Type2 = union(enum) {
+    int: i32,
+};
+
+fn returns_i32() i32 {
+    return -3;
+}
+
+fn returns_usize() usize {
+    return 0;
+}
+
+fn returns_union() Union_Result_Type {
+    return .{ .int = 1234 };
+}
+
+fn returns_union2() Union_Result_Type2 {
+    return .{ .int = 1234 };
+}
+
+test "Union result coercion" {
+    const Injector = dizzy.Injector(providers, .{ .Output_Type = Union_Result_Type });
+
+    try std.testing.expectEqual(Union_Result_Type { .int = -3 }, try Injector.call(returns_i32, {}));
+    try std.testing.expectEqual(Union_Result_Type { .unsigned = 0 }, try Injector.call(returns_usize, {}));
+    try std.testing.expectEqual(Union_Result_Type { .int = 1234 }, try Injector.call(returns_union, {}));
+    try std.testing.expectEqual(Union_Result_Type { .int = 1234 }, try Injector.call(returns_union2, {}));
+}
+
 const Injectable_Thing_A = struct {};
 
 const Injectable_Thing_B = struct {

@@ -21,6 +21,7 @@ fn Injector_Internal(comptime providers: []const Provider_Mapping, comptime Inpu
             const Func = @TypeOf(func);
             const func_info = @typeInfo(Func).Fn;
             const Result = func_info.return_type.?;
+            const result_is_error_union = @typeInfo(Result) == .ErrorUnion;
 
             var args: std.meta.ArgsTuple(Func) = undefined;
 
@@ -47,7 +48,7 @@ fn Injector_Internal(comptime providers: []const Provider_Mapping, comptime Inpu
                 }
             }
 
-            defer if (@typeInfo(Result) == .ErrorUnion) {
+            defer if (result_is_error_union) {
                 inline for (args) |a| {
                     const Arg = @TypeOf(a);
                     inline for (providers) |provider| {
@@ -61,7 +62,7 @@ fn Injector_Internal(comptime providers: []const Provider_Mapping, comptime Inpu
                 }
             };
 
-            errdefer if (@typeInfo(Result) == .ErrorUnion) {
+            errdefer if (result_is_error_union) {
                 inline for (args) |a| {
                     const Arg = @TypeOf(a);
                     inline for (providers) |provider| {
@@ -75,7 +76,41 @@ fn Injector_Internal(comptime providers: []const Provider_Mapping, comptime Inpu
                 }
             };
 
-            return @call(.auto, func, args);
+            const result = if (result_is_error_union) (try @call(.auto, func, args)) else @call(.auto, func, args);
+
+            switch (@typeInfo(Output)) {
+                .Union => |output_info| {
+                    if (output_info.tag_type) |_| {
+                        switch (@typeInfo(@TypeOf(result))) {
+                            .Union => |result_info| {
+                                if (result_info.tag_type) |_| {
+                                    inline for (output_info.fields) |output_field| {
+                                        inline for (result_info.fields) |result_field| {
+                                            if (output_field.type == result_field.type
+                                                and std.mem.eql(u8, result_field.name, @tagName(result))
+                                                and comptime std.mem.eql(u8, output_field.name, result_field.name)
+                                            ) {
+                                                return @unionInit(Output, output_field.name, @field(result, result_field.name));
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            else => {},
+                        }
+
+                        inline for (output_info.fields) |field| {
+                            if (@TypeOf(result) == field.type) {
+                                return @unionInit(Output, field.name, result);
+                            }
+                        }
+                        unreachable;
+                    }
+                },
+                else => {},
+            }
+                        
+            return result;
         }
 
         pub fn extend(comptime Provider_Decls: type) type {
