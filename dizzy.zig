@@ -18,7 +18,14 @@ fn Injector_Internal(comptime providers: []const Provider_Mapping, comptime Inpu
     return struct {
         pub fn call(func: anytype, data: Input) Error!Output {
             @setEvalBranchQuota(10_000); // you may need to increase this even more if you have lots of providers and/or parameters
-            const Func = @TypeOf(func);
+            const Func = switch (@typeInfo(@TypeOf(func))) {
+                .Fn => @TypeOf(func),
+                .Pointer => |info| info.child,
+                else => {
+                    @compileLog(func);
+                    unreachable;
+                },
+            };
             const func_info = @typeInfo(Func).Fn;
             const Result = func_info.return_type.?;
             const result_is_error_union = @typeInfo(Result) == .ErrorUnion;
