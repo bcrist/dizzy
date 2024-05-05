@@ -266,7 +266,6 @@ fn fn_signatures_exactly_eql(comptime fn1: type, comptime fn2: type) bool {
     if (info1.return_type.? != info2.return_type.?) return false;
     if (info1.is_var_args != info2.is_var_args) return false;
     if (info1.is_generic != info2.is_generic) return false;
-    if (info1.alignment != info2.alignment) return false;
     if (info1.calling_convention != info2.calling_convention) return false;
     return true;
 }
