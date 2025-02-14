@@ -19,16 +19,16 @@ fn Injector_Internal(comptime providers: []const Provider_Mapping, comptime Inpu
         pub fn call(func: anytype, data: Input) Error!Output {
             @setEvalBranchQuota(10_000); // you may need to increase this even more if you have lots of providers and/or parameters
             const Func = switch (@typeInfo(@TypeOf(func))) {
-                .Fn => @TypeOf(func),
-                .Pointer => |info| info.child,
+                .@"fn" => @TypeOf(func),
+                .pointer => |info| info.child,
                 else => {
                     @compileLog(func);
                     unreachable;
                 },
             };
-            const func_info = @typeInfo(Func).Fn;
+            const func_info = @typeInfo(Func).@"fn";
             const Result = func_info.return_type.?;
-            const result_is_error_union = @typeInfo(Result) == .ErrorUnion;
+            const result_is_error_union = @typeInfo(Result) == .error_union;
 
             var args: std.meta.ArgsTuple(Func) = undefined;
 
@@ -86,10 +86,10 @@ fn Injector_Internal(comptime providers: []const Provider_Mapping, comptime Inpu
             const result = if (result_is_error_union) (try @call(.auto, func, args)) else @call(.auto, func, args);
 
             switch (@typeInfo(Output)) {
-                .Union => |output_info| {
+                .@"union" => |output_info| {
                     if (output_info.tag_type) |_| {
                         switch (@typeInfo(@TypeOf(result))) {
-                            .Union => |result_info| {
+                            .@"union" => |result_info| {
                                 if (result_info.tag_type) |_| {
                                     inline for (output_info.fields) |output_field| {
                                         inline for (result_info.fields) |result_field| {
@@ -133,7 +133,7 @@ fn parse_providers(comptime Provider_Decls: type, comptime Input: type, comptime
 
         if (providers.len == 0 and is_injectable(Input)) {
             providers = providers ++ .{
-                .{
+                Provider_Mapping {
                     .T = Input,
                     .provider = struct {
                         pub fn identity(data: Input) Error!Input {
@@ -172,9 +172,9 @@ fn parse_provider(comptime Provider_Decls: type, comptime name: []const u8, comp
 fn Injected_Type(comptime Provider_Decls: type, comptime name: []const u8) type {
     const Decl_Type = @TypeOf(@field(Provider_Decls, name));
     switch (@typeInfo(Decl_Type)) {
-        .Fn => |info| {
+        .@"fn" => |info| {
             switch (@typeInfo(info.return_type.?)) {
-                .ErrorUnion => |err_info| return err_info.payload,
+                .error_union => |err_info| return err_info.payload,
                 else => return info.return_type.?,
             }
         },
@@ -188,7 +188,7 @@ fn parse_provider_func(comptime Provider_Decls: type, comptime name: []const u8,
         return @field(Provider_Decls, name);
     }
 
-    if (@typeInfo(Decl_Type) != .Fn) {
+    if (@typeInfo(Decl_Type) != .@"fn") {
         return struct {
             pub fn provider(_: Input) Error!Injected {
                 return @field(Provider_Decls, name);
@@ -196,10 +196,10 @@ fn parse_provider_func(comptime Provider_Decls: type, comptime name: []const u8,
         }.provider;
     }
 
-    const fn_info = @typeInfo(Decl_Type).Fn;
+    const fn_info = @typeInfo(Decl_Type).@"fn";
 
     if (fn_info.params.len == 0) {
-        if (@typeInfo(fn_info.return_type.?) == .ErrorUnion) {
+        if (@typeInfo(fn_info.return_type.?) == .error_union) {
             return struct {
                 pub fn provider(_: Input) Error!Injected {
                     return try @field(Provider_Decls, name)();
@@ -215,7 +215,7 @@ fn parse_provider_func(comptime Provider_Decls: type, comptime name: []const u8,
     }
 
     if (fn_info.params.len == 1 and fn_info.params[0].type == Input) {
-        if (@typeInfo(fn_info.return_type.?) == .ErrorUnion) {
+        if (@typeInfo(fn_info.return_type.?) == .error_union) {
             return struct {
                 pub fn provider(data: Input) Error!Injected {
                     return try @field(Provider_Decls, name)(data);
@@ -250,23 +250,23 @@ fn parse_cleanup_func(comptime Provider_Decls: type, comptime name: []const u8, 
 
 fn is_injectable(comptime T: type) bool {
     return switch (@typeInfo(T)) {
-        .Struct, .Union, .Enum, .Opaque => if (@hasDecl(T, "is_injectable")) T.is_injectable else true,
-        .Pointer => |info| is_injectable(info.child),
-        .Array => |info| is_injectable(info.child),
-        .Optional => |info| is_injectable(info.child),
+        .@"struct", .@"union", .@"enum", .@"opaque" => if (@hasDecl(T, "is_injectable")) T.is_injectable else true,
+        .pointer => |info| is_injectable(info.child),
+        .array => |info| is_injectable(info.child),
+        .optional => |info| is_injectable(info.child),
         else => false,
     };
 }
 
 fn fn_signatures_exactly_eql(comptime fn1: type, comptime fn2: type) bool {
-    if (@typeInfo(fn1) != .Fn or @typeInfo(fn2) != .Fn) return false;
-    const info1 = @typeInfo(fn1).Fn;
-    const info2 = @typeInfo(fn2).Fn;
+    if (@typeInfo(fn1) != .@"fn" or @typeInfo(fn2) != .@"fn") return false;
+    const info1 = @typeInfo(fn1).@"fn";
+    const info2 = @typeInfo(fn2).@"fn";
     if (!std.meta.eql(info1.params, info2.params)) return false;
     if (info1.return_type.? != info2.return_type.?) return false;
     if (info1.is_var_args != info2.is_var_args) return false;
     if (info1.is_generic != info2.is_generic) return false;
-    if (info1.calling_convention != info2.calling_convention) return false;
+    if (!std.meta.eql(info1.calling_convention, info2.calling_convention)) return false;
     return true;
 }
 
