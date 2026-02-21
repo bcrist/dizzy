@@ -6,9 +6,11 @@ pub fn build(b: *std.Build) void {
     });
 
     const tests = b.addTest(.{
-        .root_source_file = b.path("test.zig"),
-        .optimize = b.standardOptimizeOption(.{}),
-        .target = b.standardTargetOptions(.{}),
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("test.zig"),
+            .optimize = b.standardOptimizeOption(.{}),
+            .target = b.standardTargetOptions(.{}),
+        }),
     });
     tests.root_module.addImport("dizzy", dizzy);
     const run_tests = b.addRunArtifact(tests);
