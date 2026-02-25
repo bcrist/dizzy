@@ -14,8 +14,12 @@ pub const Provider_Mapping = struct {
     err_cleanup: ?*const anyopaque,
     cleanup: ?*const anyopaque,
 };
-fn Injector_Internal(comptime providers: []const Provider_Mapping, comptime Input: type, comptime Output: type, comptime Error: type) type {
+fn Injector_Internal(comptime providers: []const Provider_Mapping, comptime I: type, comptime O: type, comptime E: type) type {
     return struct {
+        pub const Input = I;
+        pub const Output = O;
+        pub const Error = E;
+
         pub fn call(func: anytype, data: Input) Error!Output {
             @setEvalBranchQuota(10_000); // you may need to increase this even more if you have lots of providers and/or parameters
             const Func = switch (@typeInfo(@TypeOf(func))) {
