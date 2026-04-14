@@ -243,7 +243,7 @@ fn parse_provider_func(comptime Provider_Decls: type, comptime name: []const u8,
         }.provider;
     }
 
-    @compileError(@typeName(Provider_Decls) + "." + name + " is not a valid injection provider");
+    @compileError(@typeName(Provider_Decls) ++ "." ++ name ++ " is not a valid injection provider");
 }
 
 fn parse_cleanup_func(comptime Provider_Decls: type, comptime name: []const u8, comptime Injected: type) ?*const fn(data: Injected) void {
