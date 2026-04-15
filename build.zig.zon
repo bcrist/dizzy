@@ -2,7 +2,7 @@
     .name = .dizzy,
     .fingerprint = 0x49d12b7baf040e74,
     .version = "0.1.0",
-    .minimum_zig_version = "0.15.1",
+    .minimum_zig_version = "0.16.0",
     .paths = .{
         "build.zig",
         "build.zig.zon",
