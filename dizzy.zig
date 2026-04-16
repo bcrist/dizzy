@@ -47,7 +47,7 @@ fn Injector_Internal(comptime providers: []const Provider_Mapping, comptime I: t
                 inline for (providers) |provider| {
                     if (Arg == provider.T) {
                         if (found_provider) @compileError("Multiple providers found for type: " ++ @typeName(Arg));
-                        const provider_func: *const fn(data: Input) Error!Arg = @ptrCast(provider.provider);
+                        const provider_func: *const fn(data: Input) Error!Arg = @alignCast(@ptrCast(provider.provider));
                         args[i] = try provider_func(data);
                         found_provider = true;
                     }
@@ -65,7 +65,7 @@ fn Injector_Internal(comptime providers: []const Provider_Mapping, comptime I: t
                     inline for (providers) |provider| {
                         if (Arg == provider.T) {
                             if (provider.cleanup) |cleanup_func_opaque| {
-                                const cleanup_func: *const fn(data: Arg) void = @ptrCast(cleanup_func_opaque);
+                                const cleanup_func: *const fn(data: Arg) void = @alignCast(@ptrCast(cleanup_func_opaque));
                                 cleanup_func(a);
                             }
                         }
@@ -79,7 +79,7 @@ fn Injector_Internal(comptime providers: []const Provider_Mapping, comptime I: t
                     inline for (providers) |provider| {
                         if (Arg == provider.T) {
                             if (provider.err_cleanup) |cleanup_func_opaque| {
-                                const cleanup_func: *const fn(data: Arg) void = @ptrCast(cleanup_func_opaque);
+                                const cleanup_func: *const fn(data: Arg) void = @alignCast(@ptrCast(cleanup_func_opaque));
                                 cleanup_func(a);
                             }
                         }
