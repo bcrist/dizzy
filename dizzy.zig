@@ -36,9 +36,8 @@ fn Injector_Internal(comptime providers: []const Provider_Mapping, comptime I: t
 
             var args: std.meta.ArgsTuple(Func) = undefined;
 
-            inline for (func_info.params, 0..) |arg, i| {
-                const Arg = arg.type.?;
-
+            inline for (func_info.param_types, 0..) |maybe_arg, i| {
+                const Arg = maybe_arg orelse @compileError("anytype and unresolvable generic parameters are not allowed in injected functions");
                 if (comptime !is_injectable(Arg)) {
                     @compileError(@typeName(Arg) ++ " is not injectable");
                 }
@@ -95,13 +94,13 @@ fn Injector_Internal(comptime providers: []const Provider_Mapping, comptime I: t
                         switch (@typeInfo(@TypeOf(result))) {
                             .@"union" => |result_info| {
                                 if (result_info.tag_type) |_| {
-                                    inline for (output_info.fields) |output_field| {
-                                        inline for (result_info.fields) |result_field| {
-                                            if (output_field.type == result_field.type
-                                                and std.mem.eql(u8, result_field.name, @tagName(result))
-                                                and comptime std.mem.eql(u8, output_field.name, result_field.name)
+                                    inline for (output_info.field_names, output_info.field_types) |output_field_name, output_field_type| {
+                                        inline for (result_info.field_names, result_info.field_types) |result_field_name, result_field_type| {
+                                            if (output_field_type == result_field_type
+                                                and std.mem.eql(u8, result_field_name, @tagName(result))
+                                                and comptime std.mem.eql(u8, output_field_name, result_field_name)
                                             ) {
-                                                return @unionInit(Output, output_field.name, @field(result, result_field.name));
+                                                return @unionInit(Output, output_field_name, @field(result, result_field_name));
                                             }
                                         }
                                     }
@@ -110,9 +109,9 @@ fn Injector_Internal(comptime providers: []const Provider_Mapping, comptime I: t
                             else => {},
                         }
 
-                        inline for (output_info.fields) |field| {
-                            if (@TypeOf(result) == field.type) {
-                                return @unionInit(Output, field.name, result);
+                        inline for (output_info.field_names, output_info.field_types) |field_name, field_type| {
+                            if (@TypeOf(result) == field_type) {
+                                return @unionInit(Output, field_name, result);
                             }
                         }
                         unreachable;
@@ -150,12 +149,11 @@ fn parse_providers(comptime Provider_Decls: type, comptime Input: type, comptime
             };
         }
 
-        for (std.meta.declarations(Provider_Decls)) |decl| {
-            const name = decl.name;
-            if (!std.mem.startsWith(u8, name, "inject_")) continue;
-            if (std.mem.endsWith(u8, name, "_cleanup") and @hasDecl(Provider_Decls, name[0 .. name.len - "_cleanup".len])) continue;
-            if (std.mem.endsWith(u8, name, "_cleanup_err") and @hasDecl(Provider_Decls, name[0 .. name.len - "_cleanup_err".len])) continue;
-            providers = providers ++ .{ parse_provider(Provider_Decls, name, Input, Error, parent_providers) };
+        for (@typeInfo(Provider_Decls).@"struct".decl_names) |decl| {
+            if (!std.mem.startsWith(u8, decl, "inject_")) continue;
+            if (std.mem.endsWith(u8, decl, "_cleanup") and @hasDecl(Provider_Decls, decl[0 .. decl.len - "_cleanup".len])) continue;
+            if (std.mem.endsWith(u8, decl, "_cleanup_err") and @hasDecl(Provider_Decls, decl[0 .. decl.len - "_cleanup_err".len])) continue;
+            providers = providers ++ .{ parse_provider(Provider_Decls, decl, Input, Error, parent_providers) };
         }
 
         break :res providers;
@@ -202,7 +200,7 @@ fn parse_provider_func(comptime Provider_Decls: type, comptime name: []const u8,
 
     const fn_info = @typeInfo(Decl_Type).@"fn";
 
-    if (fn_info.params.len == 0) {
+    if (fn_info.param_types.len == 0) {
         if (@typeInfo(fn_info.return_type.?) == .error_union) {
             return struct {
                 pub fn provider(_: Input) Error!Injected {
@@ -218,7 +216,7 @@ fn parse_provider_func(comptime Provider_Decls: type, comptime name: []const u8,
         }
     }
 
-    if (fn_info.params.len == 1 and fn_info.params[0].type == Input) {
+    if (fn_info.param_types.len == 1 and fn_info.param_types[0] == Input) {
         if (@typeInfo(fn_info.return_type.?) == .error_union) {
             return struct {
                 pub fn provider(data: Input) Error!Injected {
@@ -266,11 +264,11 @@ fn fn_signatures_exactly_eql(comptime fn1: type, comptime fn2: type) bool {
     if (@typeInfo(fn1) != .@"fn" or @typeInfo(fn2) != .@"fn") return false;
     const info1 = @typeInfo(fn1).@"fn";
     const info2 = @typeInfo(fn2).@"fn";
-    if (!std.meta.eql(info1.params, info2.params)) return false;
+    if (!std.meta.eql(info1.param_types, info2.param_types)) return false;
+    if (!std.meta.eql(info1.param_attrs, info2.param_attrs)) return false;
     if (info1.return_type.? != info2.return_type.?) return false;
-    if (info1.is_var_args != info2.is_var_args) return false;
+    if (!std.meta.eql(info1.attrs, info2.attrs)) return false;
     if (info1.is_generic != info2.is_generic) return false;
-    if (!std.meta.eql(info1.calling_convention, info2.calling_convention)) return false;
     return true;
 }
 
