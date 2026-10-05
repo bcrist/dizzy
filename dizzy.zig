@@ -46,7 +46,7 @@ fn Injector_Internal(comptime providers: []const Provider_Mapping, comptime I: t
                 inline for (providers) |provider| {
                     if (Arg == provider.T) {
                         if (found_provider) @compileError("Multiple providers found for type: " ++ @typeName(Arg));
-                        const provider_func: *const fn(data: Input) Error!Arg = @alignCast(@ptrCast(provider.provider));
+                        const provider_func: *const fn (data: Input) Error!Arg = @ptrCast(@alignCast(provider.provider));
                         args[i] = try provider_func(data);
                         found_provider = true;
                     }
@@ -64,7 +64,7 @@ fn Injector_Internal(comptime providers: []const Provider_Mapping, comptime I: t
                     inline for (providers) |provider| {
                         if (Arg == provider.T) {
                             if (provider.cleanup) |cleanup_func_opaque| {
-                                const cleanup_func: *const fn(data: Arg) void = @alignCast(@ptrCast(cleanup_func_opaque));
+                                const cleanup_func: *const fn (data: Arg) void = @ptrCast(@alignCast(cleanup_func_opaque));
                                 cleanup_func(a);
                             }
                         }
@@ -78,7 +78,7 @@ fn Injector_Internal(comptime providers: []const Provider_Mapping, comptime I: t
                     inline for (providers) |provider| {
                         if (Arg == provider.T) {
                             if (provider.err_cleanup) |cleanup_func_opaque| {
-                                const cleanup_func: *const fn(data: Arg) void = @alignCast(@ptrCast(cleanup_func_opaque));
+                                const cleanup_func: *const fn (data: Arg) void = @ptrCast(@alignCast(cleanup_func_opaque));
                                 cleanup_func(a);
                             }
                         }
@@ -96,10 +96,7 @@ fn Injector_Internal(comptime providers: []const Provider_Mapping, comptime I: t
                                 if (result_info.tag_type) |_| {
                                     inline for (output_info.field_names, output_info.field_types) |output_field_name, output_field_type| {
                                         inline for (result_info.field_names, result_info.field_types) |result_field_name, result_field_type| {
-                                            if (output_field_type == result_field_type
-                                                and std.mem.eql(u8, result_field_name, @tagName(result))
-                                                and comptime std.mem.eql(u8, output_field_name, result_field_name)
-                                            ) {
+                                            if (output_field_type == result_field_type and std.mem.eql(u8, result_field_name, @tagName(result)) and comptime std.mem.eql(u8, output_field_name, result_field_name)) {
                                                 return @unionInit(Output, output_field_name, @field(result, result_field_name));
                                             }
                                         }
@@ -119,7 +116,7 @@ fn Injector_Internal(comptime providers: []const Provider_Mapping, comptime I: t
                 },
                 else => {},
             }
-                        
+
             return result;
         }
 
@@ -136,7 +133,7 @@ fn parse_providers(comptime Provider_Decls: type, comptime Input: type, comptime
 
         if (providers.len == 0 and is_injectable(Input)) {
             providers = providers ++ .{
-                Provider_Mapping {
+                Provider_Mapping{
                     .T = Input,
                     .provider = struct {
                         pub fn identity(data: Input) Error!Input {
@@ -153,7 +150,7 @@ fn parse_providers(comptime Provider_Decls: type, comptime Input: type, comptime
             if (!std.mem.startsWith(u8, decl, "inject_")) continue;
             if (std.mem.endsWith(u8, decl, "_cleanup") and @hasDecl(Provider_Decls, decl[0 .. decl.len - "_cleanup".len])) continue;
             if (std.mem.endsWith(u8, decl, "_cleanup_err") and @hasDecl(Provider_Decls, decl[0 .. decl.len - "_cleanup_err".len])) continue;
-            providers = providers ++ .{ parse_provider(Provider_Decls, decl, Input, Error, parent_providers) };
+            providers = providers ++ .{parse_provider(Provider_Decls, decl, Input, Error, parent_providers)};
         }
 
         break :res providers;
@@ -184,9 +181,9 @@ fn Injected_Type(comptime Provider_Decls: type, comptime name: []const u8) type 
     }
 }
 
-fn parse_provider_func(comptime Provider_Decls: type, comptime name: []const u8, comptime Injected: type, comptime Input: type, comptime Error: type, comptime parent_providers: []const Provider_Mapping) *const fn(data: Input) Error!Injected {
+fn parse_provider_func(comptime Provider_Decls: type, comptime name: []const u8, comptime Injected: type, comptime Input: type, comptime Error: type, comptime parent_providers: []const Provider_Mapping) *const fn (data: Input) Error!Injected {
     const Decl_Type = @TypeOf(@field(Provider_Decls, name));
-    if (fn_signatures_exactly_eql(Decl_Type, fn(data: Input) Error!Injected)) {
+    if (fn_signatures_exactly_eql(Decl_Type, fn (data: Input) Error!Injected)) {
         return @field(Provider_Decls, name);
     }
 
@@ -244,9 +241,9 @@ fn parse_provider_func(comptime Provider_Decls: type, comptime name: []const u8,
     @compileError(@typeName(Provider_Decls) ++ "." ++ name ++ " is not a valid injection provider");
 }
 
-fn parse_cleanup_func(comptime Provider_Decls: type, comptime name: []const u8, comptime Injected: type) ?*const fn(data: Injected) void {
+fn parse_cleanup_func(comptime Provider_Decls: type, comptime name: []const u8, comptime Injected: type) ?*const fn (data: Injected) void {
     if (!@hasDecl(Provider_Decls, name)) return null;
-    const ptr: *const fn(data: Injected) void = @field(Provider_Decls, name);
+    const ptr: *const fn (data: Injected) void = @field(Provider_Decls, name);
     return ptr;
 }
 

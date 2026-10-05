@@ -1,6 +1,5 @@
-
 fn single_param_empty_struct(a: Injectable_Thing_A) void {
-    std.log.info("Called single_param_empty_struct({any})\n", .{ a });
+    std.log.info("Called single_param_empty_struct({any})\n", .{a});
 }
 
 fn two_params(b: Injectable_Thing_B, a: Injectable_Thing_A) !void {
@@ -8,7 +7,7 @@ fn two_params(b: Injectable_Thing_B, a: Injectable_Thing_A) !void {
 }
 
 fn thing_c(c: Injectable_Thing_C) !void {
-    std.log.info("Called thing_c({s})\n", .{ c.msg });
+    std.log.info("Called thing_c({s})\n", .{c.msg});
 }
 
 fn thing_c2_error(_: Injectable_Thing_C2) !void {
@@ -79,7 +78,6 @@ test "Noninjectable" {
         pub fn func6(self: @This()) usize {
             return self.msg.len;
         }
-
     };
     const Injector = dizzy.Injector(struct {}, .{
         .Input_Type = Msg,
@@ -88,7 +86,7 @@ test "Noninjectable" {
     });
 
     try std.testing.expectEqual(1, Injector.call(Msg.func1, .{ .msg = "Hellorld!" }));
-    
+
     // uncommenting any of these lines should cause a compile error, e.g. void is not injectable
     //try std.testing.expectEqual(9, Injector.call(Msg.func2, .{ .msg = "Hellorld!" }));
     //try std.testing.expectEqual(9, Injector.call(Msg.func3, .{ .msg = "Hellorld!" }));
@@ -96,7 +94,6 @@ test "Noninjectable" {
     //try std.testing.expectEqual(9, Injector.call(Msg.func5, .{ .msg = "Hellorld!" }));
     //try std.testing.expectEqual(9, Injector.call(Msg.func6, .{ .msg = "Hellorld!" }));
 }
-
 
 const Union_Result_Type = union(enum) {
     int: i32,
@@ -126,10 +123,10 @@ fn returns_union2() Union_Result_Type2 {
 test "Union result coercion" {
     const Injector = dizzy.Injector(providers, .{ .Output_Type = Union_Result_Type });
 
-    try std.testing.expectEqual(Union_Result_Type { .int = -3 }, try Injector.call(returns_i32, {}));
-    try std.testing.expectEqual(Union_Result_Type { .unsigned = 0 }, try Injector.call(returns_usize, {}));
-    try std.testing.expectEqual(Union_Result_Type { .int = 1234 }, try Injector.call(returns_union, {}));
-    try std.testing.expectEqual(Union_Result_Type { .int = 1234 }, try Injector.call(returns_union2, {}));
+    try std.testing.expectEqual(Union_Result_Type{ .int = -3 }, try Injector.call(returns_i32, {}));
+    try std.testing.expectEqual(Union_Result_Type{ .unsigned = 0 }, try Injector.call(returns_usize, {}));
+    try std.testing.expectEqual(Union_Result_Type{ .int = 1234 }, try Injector.call(returns_union, {}));
+    try std.testing.expectEqual(Union_Result_Type{ .int = 1234 }, try Injector.call(returns_union2, {}));
 }
 
 const Injectable_Thing_A = struct {};
@@ -150,7 +147,6 @@ const Injectable_Thing_D = struct {
 };
 
 const providers = struct {
-
     pub fn inject_thing_a() Injectable_Thing_A {
         return .{};
     }
@@ -178,7 +174,6 @@ const providers = struct {
     pub fn inject_thing_c2_cleanup_err(c: Injectable_Thing_C2) void {
         std.testing.allocator.free(c.msg);
     }
-
 };
 
 const ext_providers = struct {
